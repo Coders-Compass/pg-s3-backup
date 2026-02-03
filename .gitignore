@@ -11,7 +11,7 @@ data/
 *.sql
 *.sql.gz
 backups/
-!docker/garage/test-data.sql
+!test/test-data.sql
 
 # IDE
 .idea/
