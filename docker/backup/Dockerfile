@@ -2,12 +2,14 @@ FROM alpine:3.21
 
 # Install PostgreSQL client and dependencies
 # PostgreSQL 18 client is available in Alpine edge
+# Versions are not pinned to allow Dependabot Alpine upgrades
+# hadolint ignore=DL3018
 RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
     apk add --no-cache \
-    postgresql18-client=18.1-r1 \
-    curl=8.18.0-r0 \
-    bash=5.2.37-r0 \
-    gzip=1.13-r0
+    postgresql18-client \
+    curl \
+    bash \
+    gzip
 
 # Install MinIO client (mc) - detect architecture
 RUN ARCH=$(uname -m) && \
