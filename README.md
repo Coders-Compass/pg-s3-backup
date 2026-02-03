@@ -134,6 +134,158 @@ The backup script doesn't automatically delete old backups. To implement retenti
 2. Add an Ofelia label for scheduled cleanup
 3. Or use S3 lifecycle policies on your bucket
 
+## Integrating into an Existing Project
+
+### 1. Copy the backup stack
+
+Copy these files to your project:
+
+```
+docker/
+├── backup/
+│   ├── Dockerfile
+│   └── scripts/
+│       ├── backup.sh
+│       └── restore.sh
+└── garage/          # Optional: only for local S3 testing
+    ├── garage.toml
+    └── scripts/
+        └── init.sh
+```
+
+### 2. Add services to your docker-compose.yml
+
+```yaml
+services:
+  # Your existing app
+  app:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:changeme@postgres:5432/myapp
+
+  # Add these services
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d myapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backup:
+    build: ./docker/backup
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: myapp
+      POSTGRES_USER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      S3_ENDPOINT: ${S3_ENDPOINT}
+      S3_BUCKET: ${S3_BUCKET}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+
+  ofelia:
+    image: mcuadros/ofelia:v0.3.20
+    depends_on:
+      - backup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: daemon --docker
+
+volumes:
+  postgres_data:
+```
+
+### 3. Configure environment
+
+```bash
+# .env
+POSTGRES_PASSWORD=your-secure-password
+S3_ENDPOINT=https://s3.amazonaws.com   # or your S3-compatible endpoint
+S3_BUCKET=myapp-backups
+S3_ACCESS_KEY=AKIA...
+S3_SECRET_KEY=...
+```
+
+### 4. Verify configuration
+
+```bash
+# Start services
+docker compose up -d
+
+# Check all services are healthy
+docker compose ps
+
+# Verify backup container can reach PostgreSQL
+docker compose exec backup pg_isready -h postgres -U postgres
+
+# Verify S3 connectivity
+docker compose exec backup mc alias set s3 $S3_ENDPOINT $S3_ACCESS_KEY $S3_SECRET_KEY
+docker compose exec backup mc ls s3/$S3_BUCKET/
+```
+
+### 5. Test first backup
+
+```bash
+# Run manual backup
+docker compose exec backup /scripts/backup.sh
+
+# Verify backup exists in S3
+docker compose exec backup mc ls --recursive s3/$S3_BUCKET/
+```
+
+### 6. Test restore
+
+```bash
+# List available backups
+docker compose exec backup mc ls --recursive s3/$S3_BUCKET/
+
+# Restore (to same database or a test instance)
+docker compose exec backup /scripts/restore.sh 2026/02/03/myapp_120000.sql.gz
+```
+
+### Quick verification script
+
+Add this to your project as `scripts/verify-backup.sh`:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+echo "=== Verifying backup configuration ==="
+
+echo "1. Checking PostgreSQL..."
+docker compose exec -T backup pg_isready -h postgres -U postgres
+
+echo "2. Checking S3 access..."
+docker compose exec -T backup mc ls s3/$S3_BUCKET/ >/dev/null
+
+echo "3. Running test backup..."
+docker compose exec -T backup /scripts/backup.sh
+
+echo "4. Verifying backup in S3..."
+BACKUP=$(docker compose exec -T backup mc ls --recursive s3/$S3_BUCKET/ | tail -1)
+echo "   Latest backup: $BACKUP"
+
+echo "=== All checks passed ==="
+```
+
+### Local development without real S3
+
+For local development, include the Garage services from this project to have a local S3-compatible store - no AWS credentials needed.
+
 ## Testing
 
 Run the integration test suite:
