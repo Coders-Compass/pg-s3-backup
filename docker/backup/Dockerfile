@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.23
 
 # Install PostgreSQL client and dependencies
 # PostgreSQL 18 client is available in Alpine edge
