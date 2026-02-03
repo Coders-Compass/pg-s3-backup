@@ -56,7 +56,7 @@ All configuration is done via environment variables. See `.env.example` for avai
 
 | Variable            | Default              | Description                   |
 | ------------------- | -------------------- | ----------------------------- |
-| `POSTGRES_VERSION`  | `16`                 | PostgreSQL version            |
+| `POSTGRES_VERSION`  | `18`                 | PostgreSQL version            |
 | `POSTGRES_DB`       | `myapp`              | Database name                 |
 | `POSTGRES_USER`     | `postgres`           | Database user                 |
 | `POSTGRES_PASSWORD` | `changeme`           | Database password             |
@@ -206,4 +206,4 @@ The workflow runs on:
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
