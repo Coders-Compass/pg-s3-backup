@@ -1,4 +1,4 @@
-# PostgreSQL Backup Solution
+# PostgreSQL S3 Backup Solution
 
 A [Docker Compose](https://docs.docker.com/compose/)-based [PostgreSQL](https://www.postgresql.org/) backup solution that performs periodic [`pg_dump`](https://www.postgresql.org/docs/current/app-pgdump.html) backups and uploads them to S3-compatible storage (AWS S3, Backblaze B2, etc). We use [Garage](https://garagehq.deuxfleurs.fr/) for local testing.
 
