@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:${POSTGRES_VERSION:-16}-alpine
+    image: postgres:${POSTGRES_VERSION:-18}-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-myapp}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -16,7 +16,7 @@ services:
       retries: 5
 
   garage:
-    image: dxflrs/garage:v1.0.1
+    image: dxflrs/garage:v2.2.0
     environment:
       GARAGE_ALLOW_WORLD_READABLE_SECRETS: "true"
     volumes:
@@ -33,7 +33,7 @@ services:
       start_period: 3s
 
   garage-init:
-    image: alpine:3.19
+    image: alpine:3.21
     depends_on:
       garage:
         condition: service_healthy
@@ -75,7 +75,7 @@ services:
       ofelia.job-exec.backup.command: /scripts/backup.sh
 
   ofelia:
-    image: mcuadros/ofelia:latest
+    image: mcuadros/ofelia:v0.3.20
     depends_on:
       - backup
     volumes:

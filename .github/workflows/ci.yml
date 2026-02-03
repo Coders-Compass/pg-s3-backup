@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Lint Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
@@ -20,7 +20,7 @@ jobs:
           dockerfile: docker/backup/Dockerfile
 
       - name: Lint shell scripts
-        uses: ludeeus/action-shellcheck@master
+        uses: ludeeus/action-shellcheck@2.0.0
         with:
           scandir: './docker/backup/scripts'
           additional_files: './test/integration.sh'
@@ -36,7 +36,7 @@ jobs:
     needs: lint
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

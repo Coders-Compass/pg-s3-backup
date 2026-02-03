@@ -1,8 +1,10 @@
-FROM alpine:3.19
+FROM alpine:3.21
 
 # Install PostgreSQL client and dependencies
-RUN apk add --no-cache \
-    postgresql16-client \
+# PostgreSQL 18 client is available in Alpine edge
+RUN echo "https://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories && \
+    apk add --no-cache \
+    postgresql18-client \
     curl \
     bash \
     gzip

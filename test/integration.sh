@@ -54,7 +54,7 @@ fi
 log "  ✓ PostgreSQL (restore) is healthy"
 
 # Check garage (use admin API on port 3903)
-if ! docker compose ${COMPOSE_FILES} exec -T backup curl -sf -H "Authorization: Bearer admin-token" http://garage:3903/v1/health >/dev/null 2>&1; then
+if ! docker compose ${COMPOSE_FILES} exec -T backup curl -sf -H "Authorization: Bearer admin-token" http://garage:3903/v2/GetClusterHealth >/dev/null 2>&1; then
     error "Garage is not ready"
     exit 1
 fi
