@@ -60,6 +60,37 @@ if ! docker compose ${COMPOSE_FILES} exec -T backup curl -sf -H "Authorization: 
 fi
 log "  ✓ Garage (S3) is healthy"
 
+# Step 1.5: Validate PostgreSQL data directory configuration
+log "Step 1.5: Validating PostgreSQL configuration..."
+
+# Get PGDATA from the container
+PGDATA=$(docker compose ${COMPOSE_FILES} exec -T postgres printenv PGDATA 2>/dev/null | tr -d '[:space:]')
+if [ -z "${PGDATA}" ]; then
+    error "Could not determine PGDATA from PostgreSQL container"
+    exit 1
+fi
+log "  ✓ PGDATA: ${PGDATA}"
+
+# Verify PostgreSQL is actually using the expected data directory
+ACTUAL_DATA_DIR=$(docker compose ${COMPOSE_FILES} exec -T postgres psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" -t -c "SHOW data_directory;" | tr -d '[:space:]')
+if [ -z "${ACTUAL_DATA_DIR}" ]; then
+    error "Could not determine data_directory from PostgreSQL"
+    exit 1
+fi
+log "  ✓ data_directory: ${ACTUAL_DATA_DIR}"
+
+# Verify they match
+if [ "${PGDATA}" != "${ACTUAL_DATA_DIR}" ]; then
+    error "PGDATA (${PGDATA}) does not match data_directory (${ACTUAL_DATA_DIR})"
+    exit 1
+fi
+
+# For PostgreSQL 18+, verify the path follows the new structure
+if [[ "${PGDATA}" != /var/lib/postgresql/* ]]; then
+    warn "PGDATA (${PGDATA}) does not follow PostgreSQL 18+ path convention (/var/lib/postgresql/...)"
+fi
+log "  ✓ PostgreSQL configuration validated"
+
 # Step 2: Insert test data
 log "Step 2: Inserting test data..."
 docker compose ${COMPOSE_FILES} exec -T postgres psql -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" < test/test-data.sql
