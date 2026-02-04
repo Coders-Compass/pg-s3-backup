@@ -51,3 +51,14 @@ shell-postgres: ## Open psql in the postgres container
 
 list-backups: ## List all backups in S3
 	docker compose exec backup mc ls --recursive s3/backups/
+
+cleanup: ## Run retention cleanup
+	docker compose exec backup /scripts/cleanup.sh
+
+cleanup-dry-run: ## Preview retention cleanup (no deletions)
+	docker compose exec -e RETENTION_DRY_RUN=true backup /scripts/cleanup.sh
+
+test-retention: ## Run retention cleanup tests
+	docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --build --wait
+	./test/test-retention.sh
+	docker compose -f docker-compose.yml -f docker-compose.test.yml down -v

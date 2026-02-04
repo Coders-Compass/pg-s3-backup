@@ -60,28 +60,49 @@ All configuration is done via environment variables. See `.env.example` for avai
 | `POSTGRES_DB`       | `myapp`              | Database name                 |
 | `POSTGRES_USER`     | `postgres`           | Database user                 |
 | `POSTGRES_PASSWORD` | `changeme`           | Database password             |
-| `BACKUP_SCHEDULE`   | `0 */6 * * *`        | Cron schedule (every 6 hours) |
+| `BACKUP_SCHEDULE`   | `0 * * * *`          | Cron schedule (every hour)    |
+| `CLEANUP_SCHEDULE`  | `0 1 * * *`          | Cleanup schedule (daily 1 AM) |
 | `S3_ENDPOINT`       | `http://garage:3900` | S3 endpoint URL               |
 | `S3_BUCKET`         | `backups`            | S3 bucket name                |
 | `S3_ACCESS_KEY`     | `garage-access-key`  | S3 access key                 |
 | `S3_SECRET_KEY`     | `garage-secret-key`  | S3 secret key                 |
+
+### Retention Policy
+
+Retention is configured using Restic-style time-bucket policies. Policies are **ORed** - a backup matching ANY policy is kept.
+
+| Variable                | Default | Description                              |
+| ----------------------- | ------- | ---------------------------------------- |
+| `RETENTION_KEEP_LAST`   | `3`     | Keep N most recent backups               |
+| `RETENTION_KEEP_HOURLY` | `24`    | Keep one per hour for N hours            |
+| `RETENTION_KEEP_DAILY`  | `7`     | Keep one per day for N days              |
+| `RETENTION_KEEP_WEEKLY` | `4`     | Keep one per week for N weeks            |
+| `RETENTION_KEEP_MONTHLY`| `6`     | Keep one per month for N months          |
+| `RETENTION_KEEP_YEARLY` | `2`     | Keep one per year for N years            |
+| `RETENTION_MIN_BACKUPS` | `1`     | Minimum backups to keep (safety net)     |
+| `RETENTION_DRY_RUN`     | `false` | Preview mode (log only, no deletions)    |
+
+With hourly backups, steady-state retention after 2+ years is approximately **39 backups**.
 
 > **Note on PostgreSQL 18:** The Docker volume mount path has changed from `/var/lib/postgresql/data` to `/var/lib/postgresql`. This project uses the new path. If upgrading from an older PostgreSQL version, you may need to migrate your data.
 
 ## Available Commands
 
 ```bash
-make help           # Show all available commands
-make up             # Start all services
-make down           # Stop all services
-make backup         # Trigger manual backup
-make restore FILE=x # Restore specific backup
-make test           # Run integration tests
-make logs           # Show logs from all services
-make clean          # Stop services and remove volumes
-make shell-postgres # Open psql in postgres container
-make shell-backup   # Open shell in backup container
-make list-backups   # List all backups in S3
+make help            # Show all available commands
+make up              # Start all services
+make down            # Stop all services
+make backup          # Trigger manual backup
+make restore FILE=x  # Restore specific backup
+make cleanup         # Run retention cleanup
+make cleanup-dry-run # Preview cleanup (no deletions)
+make test            # Run integration tests
+make test-retention  # Run retention policy tests
+make logs            # Show logs from all services
+make clean           # Stop services and remove volumes
+make shell-postgres  # Open psql in postgres container
+make shell-backup    # Open shell in backup container
+make list-backups    # List all backups in S3
 ```
 
 ## Backup Storage Structure
@@ -115,7 +136,7 @@ To use AWS S3, MinIO, or another S3-compatible service instead of Garage:
 
 ### Customizing the Backup Schedule
 
-The default schedule runs backups every 6 hours. Modify `BACKUP_SCHEDULE` using cron format:
+The default schedule runs backups every hour. Modify `BACKUP_SCHEDULE` using cron format:
 
 ```bash
 # Every hour
@@ -128,13 +149,30 @@ BACKUP_SCHEDULE=0 0 * * *
 BACKUP_SCHEDULE=0 2 * * 0
 ```
 
-### Adding Backup Retention
+### Backup Retention
 
-The backup script doesn't automatically delete old backups. To implement retention:
+Backup retention is built-in using Restic-style time-bucket policies. The cleanup job runs daily at 1 AM by default.
 
-1. Add a cleanup script to `docker/backup/scripts/cleanup.sh`
-2. Add an Ofelia label for scheduled cleanup
-3. Or use S3 lifecycle policies on your bucket
+**Preview what would be deleted:**
+```bash
+make cleanup-dry-run
+```
+
+**Run cleanup manually:**
+```bash
+make cleanup
+```
+
+**Customize retention policy** by setting environment variables in `.env`:
+```bash
+# Keep more monthly archives for compliance
+RETENTION_KEEP_MONTHLY=12
+
+# Keep 2 weeks of hourly backups
+RETENTION_KEEP_HOURLY=336
+```
+
+See `.env.example` for all available options
 
 ## Integrating into an Existing Project
 
