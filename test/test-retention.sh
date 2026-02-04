@@ -56,6 +56,13 @@ clear_backups() {
     docker compose ${COMPOSE_FILES} exec -T backup mc rm --recursive --force "s3/${S3_BUCKET}/" >/dev/null 2>&1 || true
 }
 
+# Helper: Setup mc alias (must be called before using mc commands)
+setup_mc_alias() {
+    docker compose ${COMPOSE_FILES} exec -T backup sh -c '
+        mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" --api S3v4
+    ' >/dev/null 2>&1
+}
+
 # Helper: Get date string for N days ago (cross-platform)
 days_ago() {
     local n="$1"
@@ -587,6 +594,19 @@ main() {
         exit 1
     fi
     log "  ✓ Services ready"
+
+    # Setup mc alias for test helper functions
+    log "Setting up S3 client..."
+    if ! setup_mc_alias; then
+        error "Failed to configure S3 client"
+        exit 1
+    fi
+    log "  ✓ S3 client configured"
+
+    # Clear any leftover backups from previous runs
+    log "Clearing existing backups..."
+    clear_backups
+    log "  ✓ Bucket cleared"
     log ""
 
     local total_tests=0
@@ -606,9 +626,9 @@ main() {
         test_combined_policies \
         test_actual_deletion
     do
-        ((total_tests++))
+        total_tests=$((total_tests + 1))
         if ! $test_func; then
-            ((failed_tests++))
+            failed_tests=$((failed_tests + 1))
         fi
         log ""
     done
