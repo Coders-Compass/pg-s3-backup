@@ -259,9 +259,9 @@ test_keep_hourly() {
     local yesterday
     yesterday=$(days_ago 1)
 
-    # Multiple backups in same hour (only first should be kept for hourly)
+    # Multiple backups in same hour (newest should be kept for hourly - script processes newest first)
     create_mock_backup "${today}/${DB_NAME}_100000.sql.gz"
-    create_mock_backup "${today}/${DB_NAME}_103000.sql.gz"  # Same hour as above
+    create_mock_backup "${today}/${DB_NAME}_103000.sql.gz"  # Same hour as above, but newer
 
     # Different hours
     create_mock_backup "${today}/${DB_NAME}_090000.sql.gz"
@@ -279,13 +279,13 @@ test_keep_hourly() {
 
     local failures=0
 
-    # First backup in each hour should be kept
-    assert_kept "${today}/${DB_NAME}_100000.sql.gz" "$output" || ((failures++))
+    # Newest backup in each hour should be kept (script processes newest first)
+    assert_kept "${today}/${DB_NAME}_103000.sql.gz" "$output" || ((failures++))  # Newest in hour 10
     assert_kept "${today}/${DB_NAME}_090000.sql.gz" "$output" || ((failures++))
     assert_kept "${today}/${DB_NAME}_080000.sql.gz" "$output" || ((failures++))
 
-    # Second backup in same hour should be deleted
-    assert_deleted "${today}/${DB_NAME}_103000.sql.gz" "$output" || ((failures++))
+    # Older backup in same hour should be deleted
+    assert_deleted "${today}/${DB_NAME}_100000.sql.gz" "$output" || ((failures++))
 
     return "$failures"
 }
@@ -582,7 +582,7 @@ main() {
 
     # Verify services are running
     log "Verifying services..."
-    if ! docker compose ${COMPOSE_FILES} exec -T backup mc ls s3/ >/dev/null 2>&1; then
+    if ! docker compose ${COMPOSE_FILES} exec -T backup curl -sf -H "Authorization: Bearer admin-token" http://garage:3903/v2/GetClusterHealth >/dev/null 2>&1; then
         error "Cannot connect to S3. Are services running?"
         exit 1
     fi

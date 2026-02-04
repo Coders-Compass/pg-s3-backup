@@ -69,9 +69,11 @@ parse_backup_timestamp() {
     second="${time_part:4:2}"
 
     # Convert to epoch using BusyBox-compatible date (Alpine)
-    # Format: YYYY-MM-DD HH:MM:SS
-    local datetime="${year}-${month}-${day} ${hour}:${minute}:${second}"
-    date -u -d "$datetime" +%s 2>/dev/null || date -u -D "%Y-%m-%d %H:%M:%S" -d "$datetime" +%s 2>/dev/null || echo "0"
+    # BusyBox date requires: date -u -d "YYYY-MM-DD HH:MM:SS" +%s (with -D format implicit)
+    # However, BusyBox's -d expects different format, so we use a workaround
+    # Format the datetime as: YYYYMMDDHHmmss and use -D to specify the format
+    local datetime="${year}${month}${day}${hour}${minute}${second}"
+    date -u -D "%Y%m%d%H%M%S" -d "$datetime" +%s 2>/dev/null || echo "0"
 }
 
 # Get bucket key for time period
@@ -81,26 +83,27 @@ get_bucket() {
     local epoch="$1"
     local period="$2"
 
+    # BusyBox date supports @seconds_since_1970 format for -d option
     case "$period" in
         hourly)
             # Bucket by hour: YYYY-MM-DD-HH
-            date -u -d "@$epoch" "+%Y-%m-%d-%H" 2>/dev/null || date -u -r "$epoch" "+%Y-%m-%d-%H"
+            date -u -d "@$epoch" "+%Y-%m-%d-%H"
             ;;
         daily)
             # Bucket by day: YYYY-MM-DD
-            date -u -d "@$epoch" "+%Y-%m-%d" 2>/dev/null || date -u -r "$epoch" "+%Y-%m-%d"
+            date -u -d "@$epoch" "+%Y-%m-%d"
             ;;
         weekly)
             # Bucket by ISO week: YYYY-WNN
-            date -u -d "@$epoch" "+%G-W%V" 2>/dev/null || date -u -r "$epoch" "+%G-W%V"
+            date -u -d "@$epoch" "+%G-W%V"
             ;;
         monthly)
             # Bucket by month: YYYY-MM
-            date -u -d "@$epoch" "+%Y-%m" 2>/dev/null || date -u -r "$epoch" "+%Y-%m"
+            date -u -d "@$epoch" "+%Y-%m"
             ;;
         yearly)
             # Bucket by year: YYYY
-            date -u -d "@$epoch" "+%Y" 2>/dev/null || date -u -r "$epoch" "+%Y"
+            date -u -d "@$epoch" "+%Y"
             ;;
     esac
 }
@@ -264,12 +267,12 @@ main() {
 
         if [ -n "$reason" ]; then
             keep_reasons[$backup]="$reason"
-            ((keep_count++))
+            keep_count=$((keep_count + 1))
         else
             delete_list+=("$backup")
         fi
 
-        ((index++))
+        index=$((index + 1))
     done
 
     # Safety check: ensure MIN_BACKUPS remain
@@ -287,8 +290,8 @@ main() {
         for i in "${!delete_list[@]}"; do
             if [ "$saved" -lt "$need_to_save" ]; then
                 keep_reasons[${delete_list[$i]}]="min_backups safety"
-                ((saved++))
-                ((keep_count++))
+                saved=$((saved + 1))
+                keep_count=$((keep_count + 1))
             else
                 new_delete_list+=("${delete_list[$i]}")
             fi
