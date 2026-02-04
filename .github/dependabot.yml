@@ -9,6 +9,14 @@ updates:
       timezone: "UTC"
 
   - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "saturday"
+      time: "06:00"
+      timezone: "UTC"
+
+  - package-ecosystem: "docker"
     directory: "/docker/backup"
     schedule:
       interval: "weekly"
