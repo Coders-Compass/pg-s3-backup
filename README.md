@@ -56,7 +56,7 @@ All configuration is done via environment variables. See `.env.example` for avai
 
 | Variable            | Default              | Description                   |
 | ------------------- | -------------------- | ----------------------------- |
-| `POSTGRES_VERSION`  | `18`                 | PostgreSQL version            |
+| `POSTGRES_VERSION`  | `18`                 | PostgreSQL version (see note) |
 | `POSTGRES_DB`       | `myapp`              | Database name                 |
 | `POSTGRES_USER`     | `postgres`           | Database user                 |
 | `POSTGRES_PASSWORD` | `changeme`           | Database password             |
@@ -65,6 +65,8 @@ All configuration is done via environment variables. See `.env.example` for avai
 | `S3_BUCKET`         | `backups`            | S3 bucket name                |
 | `S3_ACCESS_KEY`     | `garage-access-key`  | S3 access key                 |
 | `S3_SECRET_KEY`     | `garage-secret-key`  | S3 secret key                 |
+
+> **Note on PostgreSQL 18:** The Docker volume mount path has changed from `/var/lib/postgresql/data` to `/var/lib/postgresql`. This project uses the new path. If upgrading from an older PostgreSQL version, you may need to migrate your data.
 
 ## Available Commands
 
@@ -174,7 +176,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d myapp"]
       interval: 10s
