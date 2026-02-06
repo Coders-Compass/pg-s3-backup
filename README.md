@@ -60,27 +60,29 @@ All configuration is done via environment variables. See `.env.example` for avai
 | `POSTGRES_DB`       | `myapp`              | Database name                 |
 | `POSTGRES_USER`     | `postgres`           | Database user                 |
 | `POSTGRES_PASSWORD` | `changeme`           | Database password             |
-| `BACKUP_SCHEDULE`   | `0 * * * *`          | Cron schedule (every hour)    |
-| `CLEANUP_SCHEDULE`  | `0 1 * * *`          | Cleanup schedule (daily 1 AM) |
+| `BACKUP_SCHEDULE`   | `@hourly`            | Cron schedule (every hour)    |
+| `CLEANUP_SCHEDULE`  | `0 0 1 * * *`        | Cleanup schedule (daily 1 AM) |
 | `S3_ENDPOINT`       | `http://garage:3900` | S3 endpoint URL               |
 | `S3_BUCKET`         | `backups`            | S3 bucket name                |
 | `S3_ACCESS_KEY`     | `garage-access-key`  | S3 access key                 |
 | `S3_SECRET_KEY`     | `garage-secret-key`  | S3 secret key                 |
 
+> **Note:** Ofelia uses 6-field cron format (with seconds) or shortcuts like `@hourly`, `@daily`. See [Customizing the Backup Schedule](#customizing-the-backup-schedule).
+
 ### Retention Policy
 
 Retention is configured using Restic-style time-bucket policies. Policies are **ORed** - a backup matching ANY policy is kept.
 
-| Variable                | Default | Description                              |
-| ----------------------- | ------- | ---------------------------------------- |
-| `RETENTION_KEEP_LAST`   | `3`     | Keep N most recent backups               |
-| `RETENTION_KEEP_HOURLY` | `24`    | Keep one per hour for N hours            |
-| `RETENTION_KEEP_DAILY`  | `7`     | Keep one per day for N days              |
-| `RETENTION_KEEP_WEEKLY` | `4`     | Keep one per week for N weeks            |
-| `RETENTION_KEEP_MONTHLY`| `6`     | Keep one per month for N months          |
-| `RETENTION_KEEP_YEARLY` | `2`     | Keep one per year for N years            |
-| `RETENTION_MIN_BACKUPS` | `1`     | Minimum backups to keep (safety net)     |
-| `RETENTION_DRY_RUN`     | `false` | Preview mode (log only, no deletions)    |
+| Variable                 | Default | Description                           |
+| ------------------------ | ------- | ------------------------------------- |
+| `RETENTION_KEEP_LAST`    | `3`     | Keep N most recent backups            |
+| `RETENTION_KEEP_HOURLY`  | `24`    | Keep one per hour for N hours         |
+| `RETENTION_KEEP_DAILY`   | `7`     | Keep one per day for N days           |
+| `RETENTION_KEEP_WEEKLY`  | `4`     | Keep one per week for N weeks         |
+| `RETENTION_KEEP_MONTHLY` | `6`     | Keep one per month for N months       |
+| `RETENTION_KEEP_YEARLY`  | `2`     | Keep one per year for N years         |
+| `RETENTION_MIN_BACKUPS`  | `1`     | Minimum backups to keep (safety net)  |
+| `RETENTION_DRY_RUN`      | `false` | Preview mode (log only, no deletions) |
 
 With hourly backups, steady-state retention after 2+ years is approximately **39 backups**.
 
@@ -134,19 +136,39 @@ To use AWS S3, MinIO, or another S3-compatible service instead of Garage:
    S3_SECRET_KEY=your-secret-key
    ```
 
+### Using Backblaze B2
+
+For Backblaze B2:
+
+1. Create a private bucket with **SSE-B2 encryption enabled**
+2. Create an application key with **Read and Write** access to that bucket
+3. Configure lifecycle settings: **"Keep only the last version of the file"** (so deletions by cleanup.sh actually free storage)
+4. Update `.env`:
+   ```bash
+   S3_ENDPOINT=https://s3.{region}.backblazeb2.com  # e.g., s3.eu-central-003.backblazeb2.com
+   S3_BUCKET=your-bucket-name
+   S3_ACCESS_KEY=your-key-id
+   S3_SECRET_KEY=your-application-key
+   ```
+
 ### Customizing the Backup Schedule
 
-The default schedule runs backups every hour. Modify `BACKUP_SCHEDULE` using cron format:
+The default schedule runs backups every hour. Modify `BACKUP_SCHEDULE` using cron format.
+
+> **Note:** Ofelia uses **6-field cron format** (with seconds): `second minute hour day month weekday`. You can also use shortcuts like `@hourly`, `@daily`, `@weekly`.
 
 ```bash
-# Every hour
-BACKUP_SCHEDULE=0 * * * *
+# Every hour (using shortcut - recommended)
+BACKUP_SCHEDULE=@hourly
+
+# Every hour (6-field format)
+BACKUP_SCHEDULE=0 0 * * * *
 
 # Daily at midnight
-BACKUP_SCHEDULE=0 0 * * *
+BACKUP_SCHEDULE=0 0 0 * * *
 
 # Weekly on Sunday at 2am
-BACKUP_SCHEDULE=0 2 * * 0
+BACKUP_SCHEDULE=0 0 2 * * 0
 ```
 
 ### Backup Retention
@@ -154,16 +176,19 @@ BACKUP_SCHEDULE=0 2 * * 0
 Backup retention is built-in using Restic-style time-bucket policies. The cleanup job runs daily at 1 AM by default.
 
 **Preview what would be deleted:**
+
 ```bash
 make cleanup-dry-run
 ```
 
 **Run cleanup manually:**
+
 ```bash
 make cleanup
 ```
 
 **Customize retention policy** by setting environment variables in `.env`:
+
 ```bash
 # Keep more monthly archives for compliance
 RETENTION_KEEP_MONTHLY=12
@@ -186,7 +211,8 @@ docker/
 │   ├── Dockerfile
 │   └── scripts/
 │       ├── backup.sh
-│       └── restore.sh
+│       ├── restore.sh
+│       └── cleanup.sh
 └── garage/          # Optional: only for local S3 testing
     ├── garage.toml
     └── scripts/
@@ -230,14 +256,20 @@ services:
       POSTGRES_HOST: postgres
       POSTGRES_DB: myapp
       POSTGRES_USER: postgres
-      PGPASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
       S3_ENDPOINT: ${S3_ENDPOINT}
       S3_BUCKET: ${S3_BUCKET}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.backup.schedule: "@hourly"
+      ofelia.job-exec.backup.command: "/scripts/backup.sh"
+      ofelia.job-exec.cleanup.schedule: "0 0 1 * * *"
+      ofelia.job-exec.cleanup.command: "/scripts/cleanup.sh"
 
   ofelia:
-    image: mcuadros/ofelia:v0.3.20
+    image: mcuadros/ofelia:v3.0.8
     depends_on:
       - backup
     volumes:
@@ -400,10 +432,10 @@ The workflow runs on:
 
 This project uses two tools for automated dependency updates:
 
-| Tool          | Manages                              | Schedule          |
-| ------------- | ------------------------------------ | ----------------- |
-| **Dependabot**| GitHub Actions, Dockerfile           | Weekly (Saturday) |
-| **Renovate**  | Docker images in docker-compose.yml  | Weekly (Saturday) |
+| Tool           | Manages                             | Schedule          |
+| -------------- | ----------------------------------- | ----------------- |
+| **Dependabot** | GitHub Actions, Dockerfile          | Weekly (Saturday) |
+| **Renovate**   | Docker images in docker-compose.yml | Weekly (Saturday) |
 
 ### Running Renovate Manually
 
