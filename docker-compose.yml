@@ -16,7 +16,7 @@ services:
       retries: 5
 
   garage:
-    image: dxflrs/garage:v2.2.0
+    image: dxflrs/garage:v2.2.0@sha256:45a61ce3f7c9c24fc23d9ed2b09b27ed560ab87b34605d175d5c588f539c24e4
     environment:
       GARAGE_ALLOW_WORLD_READABLE_SECRETS: "true"
     volumes:
