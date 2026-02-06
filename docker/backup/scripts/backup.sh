@@ -22,6 +22,9 @@ log() {
 
 log "Starting backup of database '${POSTGRES_DB}'"
 
+# Set PostgreSQL password for non-interactive authentication
+export PGPASSWORD="${POSTGRES_PASSWORD}"
+
 # Configure MinIO client
 mc alias set s3 "${S3_ENDPOINT}" "${S3_ACCESS_KEY}" "${S3_SECRET_KEY}" --api S3v4 >/dev/null 2>&1
 
