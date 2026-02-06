@@ -396,6 +396,43 @@ The workflow runs on:
 - Push to `main` branch
 - Pull requests to `main` branch
 
+## Dependency Management
+
+This project uses two tools for automated dependency updates:
+
+| Tool          | Manages                              | Schedule          |
+| ------------- | ------------------------------------ | ----------------- |
+| **Dependabot**| GitHub Actions, Dockerfile           | Weekly (Saturday) |
+| **Renovate**  | Docker images in docker-compose.yml  | Weekly (Saturday) |
+
+### Running Renovate Manually
+
+To trigger Renovate on-demand:
+
+1. Go to Actions > Renovate workflow
+2. Click "Run workflow"
+3. Optionally enable "Dry run" to preview changes without creating PRs
+
+### Renovate Behavior
+
+- Minor and patch updates are auto-merged after 3 days
+- Major updates require manual review
+- PostgreSQL version is managed via `POSTGRES_VERSION` env var (not auto-updated)
+
+### Images Managed by Renovate
+
+- `dxflrs/garage` - S3-compatible storage
+- `alpine` - Used by garage-init
+- `mcuadros/ofelia` - Job scheduler
+
+### Setup (for maintainers)
+
+Renovate requires a `RENOVATE_TOKEN` repository secret:
+
+1. Go to GitHub Settings > Developer settings > Personal access tokens > Tokens (classic)
+2. Generate new token with `repo` and `workflow` scopes
+3. Add as repository secret named `RENOVATE_TOKEN`
+
 ## License
 
 This project is licensed under the [MIT License](LICENSE).

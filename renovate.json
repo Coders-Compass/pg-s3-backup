@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "docker:pinDigests"],
+  "schedule": ["before 6am on Saturday"],
+  "timezone": "UTC",
+  "packageRules": [
+    {
+      "description": "Auto-merge minor/patch Docker Compose updates",
+      "matchManagers": ["docker-compose"],
+      "matchUpdateTypes": ["minor", "patch", "digest"],
+      "automerge": true,
+      "automergeType": "pr",
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "Require review for major Docker Compose updates",
+      "matchManagers": ["docker-compose"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false
+    }
+  ]
+}
